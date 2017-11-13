@@ -1,0 +1,114 @@
+
+---
+title: 'Reproducible Research: Peer Assessment 2'
+output:
+  html_document: default
+  pdf_document: default
+---
+#Weather Impact on Population Health and Economy
+
+##Background:
+
+The U.S. National Oceanic and Atmospheric Administration's (NOAA) storm database tracks characteristics of major storms and weather events in the United States, including when and where they occur, as well as estimates of any fatalities, injuries, and property damage. This contains data from 1950 to November 2011
+
+We will address the following questions as part of this analysis.
+
+1) Across the United States, which types of events (as indicated in the EVTYPE variable) are most harmful with respect to population health?
+
+2) Across the United States, which types of events have the greatest economic consequences?
+
+Consider writing your report as if it were to be read by a government or municipal manager who might be responsible for preparing for severe weather events and will need to prioritize resources for different types of events. However, there is no need to make any specific recommendations in your report.
+
+#Loading and preprocessing the data
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(ggplot2)
+library(dplyr)
+require(tidyverse)
+library(tidyverse)
+library(tidyr)
+require(tidyr)
+library(knitr)
+library(markdown)
+```
+
+The data file to be processed is located in https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2.
+
+```{r,process, cache=TRUE}
+library(curl)
+
+download.file("https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2", "repdata-data-StormData.csv.bz2", method = "auto")
+
+sub <- read.csv(bzfile("repdata-data-StormData.csv.bz2"))
+
+```
+
+Subset the data to get the columns of the interest to run the analysis 
+
+```{r,cleaning,echo=TRUE}
+x<-subset(sub,select=c("EVTYPE", "INJURIES", "PROPDMG", 
+    "PROPDMGEXP", "CROPDMG", "CROPDMGEXP", "FATALITIES"))
+```
+
+Replace weird and missing values with 0 and assign Letter values to number
+
+```{r,more_clean,echo=TRUE}
+
+x$EVTYPE <- toupper(x$EVTYPE)
+x$PROPDMGEXP <- toupper(x$PROPDMGEXP)
+x$CROPDMGEXP <- toupper(x$CROPDMGEXP)
+
+x$PROPDMGEXP[!(x$PROPDMGEXP == "H") & !(x$PROPDMGEXP == "K") & !(x$PROPDMGEXP == "M") & !(x$PROPDMGEXP == "B")] <- 0
+x$PROPDMGEXP[(x$PROPDMGEXP == "H")] <- 2
+x$PROPDMGEXP[(x$PROPDMGEXP == "K")] <- 3
+x$PROPDMGEXP[(x$PROPDMGEXP == "M")] <- 6
+x$PROPDMGEXP[(x$PROPDMGEXP == "B")] <- 9
+
+x$CROPDMGEXP[!(x$CROPDMGEXP == "H") & !(x$CROPDMGEXP == "K") & !(x$CROPDMGEXP == "M") & !(x$CROPDMGEXP == "B")] <- 0
+x$CROPDMGEXP[(x$CROPDMGEXP == "H")] <- 2
+x$CROPDMGEXP[(x$CROPDMGEXP == "K")] <- 3
+x$CROPDMGEXP[(x$CROPDMGEXP == "M")] <- 6
+x$CROPDMGEXP[(x$CROPDMGEXP == "B")] <- 9
+
+```
+
+#RESULTS
+
+##1. Across the United States, which types of events (as indicated in the EVTYPE variable) are most harmful with respect to population health?
+
+Fatalities and injuries imply harmfulness to population health. They will be reported separately
+
+####1. FATALITIES
+
+```{r,fatalities,echo=TRUE}
+s <- aggregate(cbind(FATALITIES, INJURIES) ~ EVTYPE, data = x, sum)
+
+s1 <- data.frame(EVTYPE = s$EVTYPE,FATALITIES = s$FATALITIES)
+s1 <- head(s1[order(-s1$FATALITIES),],10)
+ggplot(data = s1, aes(x = reorder(EVTYPE,-FATALITIES), y = FATALITIES)) + geom_bar(stat = "identity")  + xlab("Event Type") + ylab("Fatalities") + ggtitle("Top 10 events contributing to fatalities due to Storm")+ theme(axis.text.x = element_text(angle = 90, hjust = 1))
+
+```
+
+# 2.INJURIES
+```{r,injuries,echo=TRUE}
+s2 <- data.frame(EVTYPE = s$EVTYPE,INJURIES = s$INJURIES)
+s2 <- head(s2[order(-s2$INJURIES),],10)
+ggplot(data = s2, aes(x = reorder(EVTYPE,-INJURIES), y = INJURIES)) + geom_bar(stat = "identity")  + xlab("Event Type") + ylab("Injuries") + ggtitle("Top 10 events contributing to injuries due to Storm")+ theme(axis.text.x = element_text(angle = 90, hjust = 1))
+```
+
+# 2. Across the United States, which types of events have the greatest economic consequences?
+
+```{r,economy,echo=TRUE}
+x$DMGTOT <- x$PROPDMG * 10^as.numeric(x$PROPDMGEXP) + x$CROPDMG * 10^as.numeric(x$CROPDMGEXP)
+
+#PROPDMG  PROPDMGEXP    CROPDMG CROPDMGEXP
+e <- aggregate(DMGTOT ~ EVTYPE, data = x, sum)
+e1 <- head(e[order(-e$DMGTOT),],15)
+ggplot(data = e1, aes(x = reorder(EVTYPE,-DMGTOT), y = DMGTOT)) + geom_bar(stat = "identity")  + xlab("Event Type") + ylab("Economic Impact ($)") + ggtitle("Top 15 Events with economic consequences due to Storm")+ theme(axis.text.x = element_text(angle = 90, hjust = 1))
+```
+
+#Conclusion
+
+From above bar graph we can clearly identify the most harmful events on population health are the Tornados while the most harmful events on Economy are the Floods.
